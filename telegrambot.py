@@ -78,10 +78,9 @@ async def handle_text_input(text: str, update: Update, context: ContextTypes.DEF
         await handle_twitter_url(text, update, context)
     elif text.startswith("https://twitter.com/"):
         await handle_twitter_url(text, update, context)
-    elif text.startswith("https://www.instagram.com/reel/"):
+    elif ".instagram.com/" in text:
         await handle_instagram_url(text, update, context)
-    elif text.startswith("https://instagram.com/"):
-        await handle_instagram_url(text, update, context)
+
     else:
         print(f"This is not a twitter link! {text}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Unknown link {text}")
