@@ -20,6 +20,9 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me! FART!")
+    # respond with current username
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Your username is {update.effective_user.username}")
+
 
 
 def check_for_downloaded_vid(vid_name: str):
