@@ -43,7 +43,7 @@ async def handle_request_instagram(vid_name: str, request):
 async def setup_browser(playwright: Playwright, storage_state: str) -> Tuple["Browser", "Page"]:
     chromium = playwright.chromium
     browser = await chromium.connect_over_cdp(BROWSERLESS_URL)
-    context = await browser.new_context(storage_state=storage_state)
+    context = await browser.new_context(storage_state=f'storage_states/{storage_state}')
     page = await context.new_page()
     return browser, page
 
