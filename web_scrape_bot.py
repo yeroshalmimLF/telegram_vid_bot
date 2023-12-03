@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import urllib.request
 from typing import TYPE_CHECKING, Tuple
 from playwright.async_api import Playwright, async_playwright
 
@@ -17,12 +18,14 @@ if BROWSERLESS_URL == "SECRET":
 
 async def download_video_twitter(url: str, vid_name: str):
     # print(f"Downloading video... {url}")
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            content = await response.read()
+    # async with aiohttp.ClientSession() as session:
+    #     async with session.get(url) as response:
+    #         content = await response.read()
 
-    with open(vid_name, "wb") as f:
-        f.write(content)
+    # with open(vid_name, "wb") as f:
+    #     f.write(content)
+    # was getting 20 byte files for some reason
+    urllib.request.urlretrieve(url, vid_name)
     # print("Done!")
 
 
@@ -36,7 +39,7 @@ async def handle_request_twitter(vid_name: str, request):
 async def handle_request_instagram(vid_name: str, request):
     # print(">>", request.method, request.url)
     if ".mp4" in request.url:
-        # print("This is the video!")
+        print(f"This is the video! {request.url}")
         await download_video_twitter(request.url, vid_name)
 
 
