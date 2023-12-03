@@ -6,7 +6,13 @@ from playwright.async_api import Playwright, async_playwright
 if TYPE_CHECKING:
     from playwright.async_api._generated import Browser, Page
 
-BROWSERLESS_URL = "ws://10.0.0.69:3000/"
+BROWSERLESS_URL = "SECRET"  # "ws://10.0.0.69:3000/"
+
+if BROWSERLESS_URL == "SECRET":
+    try:
+        from secret import BROWSERLESS_URL
+    except:
+        raise Exception("You need to set your Browserless Url in secret.py!")
 
 
 async def download_video_twitter(url: str, vid_name: str):
