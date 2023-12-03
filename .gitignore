@@ -1,3 +1,8 @@
+#My Custom Ignores
+storage_states/*.json
+videos/*.mp4
+secret.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
