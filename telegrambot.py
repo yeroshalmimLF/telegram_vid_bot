@@ -11,7 +11,7 @@ TOKEN = "SECRET"
 
 if TOKEN == "SECRET":
     try:
-        from secret import TOKEN
+        from secret import TOKEN, ACCEPTED_TELEGRAM_USERS
     except:
         raise Exception("You need to set your telegram token in secret.py!")
 
@@ -88,6 +88,10 @@ async def handle_text_input(text: str, update: Update, context: ContextTypes.DEF
 
 
 async def url_handler_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.username not in ACCEPTED_TELEGRAM_USERS:
+        print(f"User {update.effective_user.username} is not allowed to use this bot!")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"User {update.effective_user.username} is not allowed to use this bot!")
+        return
     if update.message is None:
         print("This is not a message!")
         return
