@@ -78,7 +78,7 @@ async def handle_text_input(text: str, update: Update, context: ContextTypes.DEF
         await handle_twitter_url(text, update, context)
     elif text.startswith("https://twitter.com/"):
         await handle_twitter_url(text, update, context)
-    elif ".instagram.com/" in text:
+    elif "instagram.com/" in text:
         await handle_instagram_url(text, update, context)
 
     else:
