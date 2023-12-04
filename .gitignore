@@ -2,6 +2,7 @@
 storage_states/*.json
 videos/*.mp4
 secret.py
+*.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
