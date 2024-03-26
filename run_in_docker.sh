@@ -1,4 +1,7 @@
-apt-get update && apt-get install -y ffmpeg
+apt-get update
+echo "INSTALLING FFMPEG"
+apt-get install -y ffmpeg
+echo "INSTALLING FFMPEG DONE?"
 git config --global --add safe.directory /code
 git pull
 pip install --upgrade pip
