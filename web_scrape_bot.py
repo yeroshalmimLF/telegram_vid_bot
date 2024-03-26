@@ -3,6 +3,7 @@ import aiohttp
 import urllib.request
 from typing import TYPE_CHECKING, Tuple
 from playwright.async_api import Playwright, async_playwright
+import subprocess
 
 if TYPE_CHECKING:
     from playwright.async_api._generated import Browser, Page
@@ -25,28 +26,41 @@ async def download_video_twitter(url: str, vid_name: str):
     # with open(vid_name, "wb") as f:
     #     f.write(content)
     # was getting 20 byte files for some reason
-    urllib.request.urlretrieve(url, vid_name)
+    # run ffmpeg to convert to mp4
+    # This is now an m3u8 file
+    print("Converting to mp4...")
+    subprocess.run(f'ffmpeg -y -i "{url}" -c copy "{vid_name}"', shell=True, check=True)
+    print("Done Converting!")
     # print("Done!")
+
+
+async def download_video_instagram(url: str, vid_name: str):
+    urllib.request.urlretrieve(url, vid_name)
 
 
 async def handle_request_twitter(vid_name: str, request):
     # print(">>", request.method, request.url)
-    if ".mp4" in request.url:
-        # print("This is the video!")
-        await download_video_twitter(request.url, vid_name)
+    # print(vid_name_small)
+    if ".m3u8" in request.url:
+        if "variant_version" in request.url:
+            print("This is  maybe the video!", request.url)
+            # There can still be multiple vids at this point from comments
+            await download_video_twitter(request.url, vid_name)
 
 
 async def handle_request_instagram(vid_name: str, request):
-    # print(">>", request.method, request.url)
+    print(">>", request.method, request.url)
     if ".mp4" in request.url:
         print(f"This is the video! {request.url}")
-        await download_video_twitter(request.url, vid_name)
+        await download_video_instagram(request.url, vid_name)
 
 
-async def setup_browser(playwright: Playwright, storage_state: str) -> Tuple["Browser", "Page"]:
+async def setup_browser(
+    playwright: Playwright, storage_state: str
+) -> Tuple["Browser", "Page"]:
     chromium = playwright.chromium
     browser = await chromium.connect_over_cdp(BROWSERLESS_URL)
-    context = await browser.new_context(storage_state=f'storage_states/{storage_state}')
+    context = await browser.new_context(storage_state=f"storage_states/{storage_state}")
     page = await context.new_page()
     return browser, page
 
@@ -59,7 +73,12 @@ async def scrape_twitter(url: str, vid_name: str):
 
             # Subscribe to "request" and "response" events.
             # page.on("request", handle_request_twitter)
-            page.on("request", lambda request: asyncio.create_task(handle_request_twitter(vid_name, request)))
+            page.on(
+                "request",
+                lambda request: asyncio.create_task(
+                    handle_request_twitter(vid_name, request)
+                ),
+            )
             # page.on("response", lambda response: print("<<", response.status, response.url))
 
             await page.goto(url)
@@ -85,7 +104,12 @@ async def scrape_instagram(url: str, vid_name: str):
             # Connect to Browser and load context
             browser, page = await setup_browser(playwright, "instagram.json")
 
-            page.on("request", lambda request: asyncio.create_task(handle_request_instagram(vid_name, request)))
+            page.on(
+                "request",
+                lambda request: asyncio.create_task(
+                    handle_request_instagram(vid_name, request)
+                ),
+            )
 
             await page.goto(url)
             view_story_button = await find_element_with_text(page, "View story")
