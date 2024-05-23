@@ -65,7 +65,6 @@ async def handle_instagram_url(url: str, update: Update, context: ContextTypes.D
         )
         return
     width, height = get_vid_size(vid_name)
-    print(width, height)
     await context.bot.send_video(
         chat_id=update.effective_chat.id, video=open(vid_name, "rb"), width=width, height=height
     )
@@ -91,7 +90,10 @@ async def handle_twitter_url(url: str, update: Update, context: ContextTypes.DEF
                 chat_id=update.effective_chat.id, text="Failed to find video!"
             )
             return
-        await context.bot.send_video(chat_id=update.effective_chat.id, video=open(vid, "rb"))
+        width, height = get_vid_size(vid)
+        await context.bot.send_video(
+            chat_id=update.effective_chat.id, video=open(vid, "rb"), width=width, height=height
+        )
 
     # download video
     # send video
