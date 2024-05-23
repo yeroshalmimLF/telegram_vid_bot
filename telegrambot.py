@@ -47,7 +47,9 @@ def check_for_downloaded_vid(vid_name: str):
     return False
 
 
-async def handle_instagram_url(url: str, update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_instagram_url(
+    url: str, update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int = None
+):
     print("This is an instagram link!")
     await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Instagram {url}")
     vid_name = url_to_filename(url)
@@ -70,9 +72,13 @@ async def handle_instagram_url(url: str, update: Update, context: ContextTypes.D
     )
 
 
-async def handle_twitter_url(url: str, update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_twitter_url(
+    url: str, update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int = None
+):
     print("This is a twitter link!")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Twitter {url}")
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=f"Twitter {url}", reply_to_message_id=message_id
+    )
     vid_name = url_to_filename(url)
     # send video.mp4
     vids = await scrape_twitter(url, vid_name)
@@ -87,32 +93,36 @@ async def handle_twitter_url(url: str, update: Update, context: ContextTypes.DEF
         # found = None
         if not found:
             await context.bot.send_message(
-                chat_id=update.effective_chat.id, text="Failed to find video!"
+                chat_id=update.effective_chat.id,
+                text="Failed to find video!",
+                reply_to_message_id=message_id,
             )
             return
         width, height = get_vid_size(vid)
         await context.bot.send_video(
-            chat_id=update.effective_chat.id, video=open(vid, "rb"), width=width, height=height
+            chat_id=update.effective_chat.id,
+            video=open(vid, "rb"),
+            width=width,
+            height=height,
+            reply_to_message_id=message_id,
         )
-
-    # download video
-    # send video
-    # delete video
-    # delete me
 
 
 async def handle_text_input(text: str, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message_id = update.message.message_id
     if text.startswith("https://x.com/"):
-        await handle_twitter_url(text, update, context)
+        await handle_twitter_url(text, update, context, message_id)
     elif text.startswith("https://twitter.com/"):
-        await handle_twitter_url(text, update, context)
+        await handle_twitter_url(text, update, context, message_id)
     elif "instagram.com/" in text:
-        await handle_instagram_url(text, update, context)
+        await handle_instagram_url(text, update, context, message_id)
 
     else:
         print(f"This is not a twitter link! {text}")
         await context.bot.send_message(
-            chat_id=update.effective_chat.id, text=f"Unknown link {text}"
+            chat_id=update.effective_chat.id,
+            text=f"Unknown link {text}",
+            reply_to_message_id=update.message.message_id,
         )
 
 
