@@ -19,7 +19,7 @@ if BROWSERLESS_URL == "SECRET":
         raise Exception("You need to set your Browserless Url in secret.py!")
 
 
-async def download_video_twitter(url: str, vid_name: str):
+async def m3u8_to_mp4(url: str, vid_name: str):
     # print(f"Downloading video... {url}")
     # async with aiohttp.ClientSession() as session:
     #     async with session.get(url) as response:
@@ -38,16 +38,16 @@ async def download_video_twitter(url: str, vid_name: str):
     # print("Done!")
 
 
-async def download_video_instagram(url: str, vid_name: str):
+async def download_mp4_url(url: str, vid_name: str):
     urllib.request.urlretrieve(url, vid_name)
 
 
 async def handle_request_twitter(vid_name: str, request, unused_variable):
-    # print(">>", request.method, request.url)
+    print(">>", request.method, request.url)
     # print(vid_name_small)
     if ".m3u8" in request.url:
         if "variant_version" in request.url:
-            print("This is  maybe the video!", request.url)
+            print("This is maybe the video!", request.url)
             print(request.__dict__)
             print(dir(request))
             print("#" * 50)
@@ -55,7 +55,10 @@ async def handle_request_twitter(vid_name: str, request, unused_variable):
             print("#" * 50)
             return request.url
             # There can still be multiple vids at this point from comments
-            # await download_video_twitter(request.url, vid_name)
+            # await m3u8_to_mp4(request.url, vid_name)
+    elif "video.twimg.com/tweet_video/" in request.url:
+        print("found a 'gif' video!", request.url)
+        return request.url
     return "NOT_M3U8"
 
 
@@ -63,7 +66,7 @@ async def handle_request_instagram(vid_name: str, request):
     print(">>", request.method, request.url)
     if ".mp4" in request.url:
         print(f"This is the video! {request.url}")
-        await download_video_instagram(request.url, vid_name)
+        await download_mp4_url(request.url, vid_name)
 
 
 async def setup_browser(playwright: Playwright, storage_state: str) -> Tuple["Browser", "Page"]:
@@ -110,10 +113,15 @@ async def scrape_twitter(url: str, vid_name: str):
             vids = []
             # urls = []  # remove this line to download all videos
             for x, url in enumerate(urls):
-                # change Vid_name to be unique for each video
-                vid_name_enumerated = filename_enumerated(vid_name, x)
-                video_succeeded = await download_video_twitter(url, vid_name_enumerated)
-                if video_succeeded:
+                if ".m3u8" in url:
+                    # change Vid_name to be unique for each video
+                    vid_name_enumerated = filename_enumerated(vid_name, x)
+                    video_succeeded = await m3u8_to_mp4(url, vid_name_enumerated)
+                    if video_succeeded:
+                        vids.append(vid_name_enumerated)
+                elif url.endswith(".mp4"):
+                    vid_name_enumerated = filename_enumerated(vid_name, x)
+                    await download_mp4_url(url, vid_name_enumerated)
                     vids.append(vid_name_enumerated)
             return vids
     except Exception as e:
