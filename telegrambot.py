@@ -2,9 +2,15 @@ import logging
 import time
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
-from utils import url_to_filename
+from utils import url_to_filename, get_vid_size
 from web_scrape_bot import scrape_twitter, scrape_instagram
 
 TOKEN = "SECRET"
@@ -15,14 +21,19 @@ if TOKEN == "SECRET":
     except:
         raise Exception("You need to set your telegram token in secret.py!")
 
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me! FART!")
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text="I'm a bot, please talk to me! FART!"
+    )
     # respond with current username
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Your username is {update.effective_user.username}")
-
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=f"Your username is {update.effective_user.username}"
+    )
 
 
 def check_for_downloaded_vid(vid_name: str):
@@ -43,13 +54,21 @@ async def handle_instagram_url(url: str, update: Update, context: ContextTypes.D
     # send video.mp4
     success = await scrape_instagram(url, vid_name)
     if not success:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Failed to scrape somewhere!")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, text=f"Failed to scrape somewhere!"
+        )
         return
     found = check_for_downloaded_vid(vid_name)
     if not found:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Failed to find video!")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, text=f"Failed to find video!"
+        )
         return
-    await context.bot.send_video(chat_id=update.effective_chat.id, video=open(vid_name, "rb"))
+    width, height = get_vid_size(vid_name)
+    print(width, height)
+    await context.bot.send_video(
+        chat_id=update.effective_chat.id, video=open(vid_name, "rb"), width=width, height=height
+    )
 
 
 async def handle_twitter_url(url: str, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -57,15 +76,22 @@ async def handle_twitter_url(url: str, update: Update, context: ContextTypes.DEF
     await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Twitter {url}")
     vid_name = url_to_filename(url)
     # send video.mp4
-    success = await scrape_twitter(url, vid_name)
-    if not success:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Failed to scrape somewhere!")
+    vids = await scrape_twitter(url, vid_name)
+    if not vids:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, text="Failed to scrape somewhere!"
+        )
         return
-    found = check_for_downloaded_vid(vid_name)
-    if not found:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Failed to find video!")
-        return
-    await context.bot.send_video(chat_id=update.effective_chat.id, video=open(vid_name, "rb"))
+    print(vids)
+    for vid in vids:
+        found = check_for_downloaded_vid(vid_name=vid)
+        # found = None
+        if not found:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id, text="Failed to find video!"
+            )
+            return
+        await context.bot.send_video(chat_id=update.effective_chat.id, video=open(vid, "rb"))
 
     # download video
     # send video
@@ -83,13 +109,18 @@ async def handle_text_input(text: str, update: Update, context: ContextTypes.DEF
 
     else:
         print(f"This is not a twitter link! {text}")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Unknown link {text}")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, text=f"Unknown link {text}"
+        )
 
 
 async def url_handler_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.username not in ACCEPTED_TELEGRAM_USERS:
         print(f"User {update.effective_user.username} is not allowed to use this bot!")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"User {update.effective_user.username} is not allowed to use this bot!")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"User {update.effective_user.username} is not allowed to use this bot!",
+        )
         return
     if update.message is None:
         print("This is not a message!")

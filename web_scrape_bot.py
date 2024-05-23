@@ -4,6 +4,8 @@ import urllib.request
 from typing import TYPE_CHECKING, Tuple
 from playwright.async_api import Playwright, async_playwright
 import subprocess
+from rich import print
+from utils import filename_enumerated
 
 if TYPE_CHECKING:
     from playwright.async_api._generated import Browser, Page
@@ -31,6 +33,8 @@ async def download_video_twitter(url: str, vid_name: str):
     print("Converting to mp4...")
     subprocess.run(f'ffmpeg -y -i "{url}" -c copy "{vid_name}"', shell=True, check=True)
     print("Done Converting!")
+    # GET THE EXIT CODE AND RETURN TRUE OR FALSE?
+    return True
     # print("Done!")
 
 
@@ -38,14 +42,21 @@ async def download_video_instagram(url: str, vid_name: str):
     urllib.request.urlretrieve(url, vid_name)
 
 
-async def handle_request_twitter(vid_name: str, request):
+async def handle_request_twitter(vid_name: str, request, unused_variable):
     # print(">>", request.method, request.url)
     # print(vid_name_small)
     if ".m3u8" in request.url:
         if "variant_version" in request.url:
             print("This is  maybe the video!", request.url)
+            print(request.__dict__)
+            print(dir(request))
+            print("#" * 50)
+            print(unused_variable)
+            print("#" * 50)
+            return request.url
             # There can still be multiple vids at this point from comments
-            await download_video_twitter(request.url, vid_name)
+            # await download_video_twitter(request.url, vid_name)
+    return "NOT_M3U8"
 
 
 async def handle_request_instagram(vid_name: str, request):
@@ -55,9 +66,7 @@ async def handle_request_instagram(vid_name: str, request):
         await download_video_instagram(request.url, vid_name)
 
 
-async def setup_browser(
-    playwright: Playwright, storage_state: str
-) -> Tuple["Browser", "Page"]:
+async def setup_browser(playwright: Playwright, storage_state: str) -> Tuple["Browser", "Page"]:
     chromium = playwright.chromium
     browser = await chromium.connect_over_cdp(BROWSERLESS_URL)
     context = await browser.new_context(storage_state=f"storage_states/{storage_state}")
@@ -71,20 +80,42 @@ async def scrape_twitter(url: str, vid_name: str):
             # Connect to Browser and load context
             browser, page = await setup_browser(playwright, "twitter.json")
 
-            # Subscribe to "request" and "response" events.
-            # page.on("request", handle_request_twitter)
+            await page.goto(url)
+
+            # Create an empty list to store the coroutines
+            request_handlers = []
+
+            # Subscribe to "request" event and append the coroutines to the list
             page.on(
                 "request",
-                lambda request: asyncio.create_task(
-                    handle_request_twitter(vid_name, request)
+                lambda request: request_handlers.append(
+                    handle_request_twitter(vid_name, request, "ignore this")
                 ),
             )
-            # page.on("response", lambda response: print("<<", response.status, response.url))
-
-            await page.goto(url)
             await asyncio.sleep(5)
+
+            # Close the browser
             await browser.close()
-        return True
+
+            # Return the list of coroutines
+            urls = []
+            for i, req in enumerate(request_handlers):
+                vid_url = await req
+                if vid_url != "NOT_M3U8":
+                    print(i, vid_url, req)
+                    urls.append(vid_url)
+            print("!!!!" * 90)
+            print(urls)
+            print("!!!!" * 90)
+            vids = []
+            # urls = []  # remove this line to download all videos
+            for x, url in enumerate(urls):
+                # change Vid_name to be unique for each video
+                vid_name_enumerated = filename_enumerated(vid_name, x)
+                video_succeeded = await download_video_twitter(url, vid_name_enumerated)
+                if video_succeeded:
+                    vids.append(vid_name_enumerated)
+            return vids
     except Exception as e:
         print(e)
         return False
@@ -106,9 +137,7 @@ async def scrape_instagram(url: str, vid_name: str):
 
             page.on(
                 "request",
-                lambda request: asyncio.create_task(
-                    handle_request_instagram(vid_name, request)
-                ),
+                lambda request: asyncio.create_task(handle_request_instagram(vid_name, request)),
             )
 
             await page.goto(url)
