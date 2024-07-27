@@ -1,14 +1,18 @@
 import asyncio
+import concurrent.futures
+import os
+import re
 import subprocess
 import urllib.request
 from typing import TYPE_CHECKING, Tuple
 
 import aiohttp
 from playwright.async_api import Playwright, async_playwright
+from RedDownloader import RedDownloader
 from redvid import Downloader
 from rich import print
 
-from utils import filename_enumerated
+from utils import convert_gif_to_mp4, filename_enumerated
 
 if TYPE_CHECKING:
     from playwright.async_api._generated import Browser, Page
@@ -80,19 +84,42 @@ async def setup_browser(playwright: Playwright, storage_state: str) -> Tuple["Br
     return browser, page
 
 
+def delete_file_if_exists(vid_name):
+    if os.path.exists(vid_name):
+        os.remove(vid_name)
+
+
 async def scrape_reddit(url: str, vid_name_and_path: str):
     path, vid_name = vid_name_and_path.rsplit("/", 1)
     reddit = Downloader(max_q=True, path=path, filename=vid_name)
     reddit.overwrite = True
     reddit.url = url
+    resp = None
     try:
         resp = reddit.download()
-    except Exception as e:
+    except BaseException as e:  # reddit package uses the BaseException class
         print(e)
-        return False
     if isinstance(resp, str):
-        return True
-    return False
+        return True, None
+    # redvid failed but it doesnt download gifs so try RedDownloader
+    # RedDownloader uses https://jackhammer.pythonanywhere.com/reddit/media/downloader/?url=INSERT_URL_HERE
+    # to get the video or gif raw url... Sometimes these are gone though and redvid downloads the reddit video rather than the source
+    print("Redvid failed to download the video. Trying RedDownloader...")
+    try:
+        vid_name = vid_name.rsplit(".", 1)[0]  # remove the extension
+        obj = RedDownloader.Download(url, quality=1080, output=vid_name, destination=path + "/")
+        file_path = f"{obj.destination}{obj.output}.{obj.mediaType}"
+
+    except Exception as e:
+        pattern = r"Destination path '(.+)' already exists"
+        match = re.search(pattern, f"{e}")
+        if match:
+            path = match.group(1)
+            return True, path
+        else:
+            print("No path detected in the error message.")
+        return False, None
+    return True, file_path
 
 
 async def scrape_twitter(url: str, vid_name: str):

@@ -51,3 +51,13 @@ def get_vid_size(vid_name: str):
         return None, None
     width, height = resp.split("x")
     return width, height
+
+
+def convert_gif_to_mp4(gif_path: str, mp4_path: str):
+    if not mp4_path:
+        mp4_path = gif_path.replace(".gif", ".mp4")
+    subprocess.run(
+        f'ffmpeg -i {gif_path} -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" {mp4_path} -y',
+        shell=True,
+    )
+    return mp4_path

@@ -1,6 +1,8 @@
 import logging
+import os
 import time
 
+import requests
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -10,14 +12,14 @@ from telegram.ext import (
     filters,
 )
 
-from utils import url_to_filename, get_vid_size
-from web_scrape_bot import scrape_reddit, scrape_twitter, scrape_instagram
+from utils import convert_gif_to_mp4, get_vid_size, url_to_filename
+from web_scrape_bot import scrape_instagram, scrape_reddit, scrape_twitter
 
 TOKEN = "SECRET"
 
 if TOKEN == "SECRET":
     try:
-        from secret import TOKEN, ACCEPTED_TELEGRAM_USERS
+        from secret import ACCEPTED_TELEGRAM_USERS, TOKEN
     except:
         raise Exception("You need to set your telegram token in secret.py!")
 
@@ -72,16 +74,30 @@ async def handle_instagram_url(
     )
 
 
+def unshorten_url(short_url):
+    response = requests.head(short_url, allow_redirects=True)
+    return response.url
+
+
 async def handle_reddit_url(
     url: str, update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int = None
 ):
     print("This is a reddit link!")
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text="Reddit link found.", reply_to_message_id=message_id
+        chat_id=update.effective_chat.id,
+        text="Reddit link found.",
+        reply_to_message_id=message_id,
+        disable_notification=True,
     )
+    if "v.redd.it" in url or "comments" not in url:
+        print("attempting to expand video link!")
+        print("old url:", url)
+        url = unshorten_url(url)
+        url = url.split("?")[0]
+        print("new url:", url)
     vid_name = url_to_filename(url)
     # send video.mp4
-    success = await scrape_reddit(url, vid_name_and_path=vid_name)
+    success, file_path = await scrape_reddit(url, vid_name_and_path=vid_name)
     if not success:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -89,6 +105,11 @@ async def handle_reddit_url(
             reply_to_message_id=message_id,
         )
         return
+    if file_path:  # if file path changed from assumption due to gifs or something else
+        if file_path.endswith(".gif"):
+            file_path = convert_gif_to_mp4(gif_path=file_path, mp4_path=vid_name)
+        else:
+            vid_name = file_path
     found = check_for_downloaded_vid(vid_name)
     if not found:
         await context.bot.send_message(
