@@ -1,10 +1,13 @@
 import asyncio
-import aiohttp
+import subprocess
 import urllib.request
 from typing import TYPE_CHECKING, Tuple
+
+import aiohttp
 from playwright.async_api import Playwright, async_playwright
-import subprocess
+from redvid import Downloader
 from rich import print
+
 from utils import filename_enumerated
 
 if TYPE_CHECKING:
@@ -75,6 +78,21 @@ async def setup_browser(playwright: Playwright, storage_state: str) -> Tuple["Br
     context = await browser.new_context(storage_state=f"storage_states/{storage_state}")
     page = await context.new_page()
     return browser, page
+
+
+async def scrape_reddit(url: str, vid_name_and_path: str):
+    path, vid_name = vid_name_and_path.rsplit("/", 1)
+    reddit = Downloader(max_q=True, path=path, filename=vid_name)
+    reddit.overwrite = True
+    reddit.url = url
+    try:
+        resp = reddit.download()
+    except Exception as e:
+        print(e)
+        return False
+    if isinstance(resp, str):
+        return True
+    return False
 
 
 async def scrape_twitter(url: str, vid_name: str):

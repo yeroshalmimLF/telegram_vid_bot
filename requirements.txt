@@ -28,8 +28,10 @@ pytest-base-url==2.0.0
 pytest-playwright==0.3.3
 python-slugify==8.0.1
 python-telegram-bot==20.3
+redvid==2.0.5
 requests==2.31.0
 rich==13.7.1
+ruff==0.4.3
 sniffio==1.3.0
 text-unidecode==1.3
 tomli==2.0.1

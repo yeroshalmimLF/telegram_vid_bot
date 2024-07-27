@@ -11,7 +11,7 @@ from telegram.ext import (
 )
 
 from utils import url_to_filename, get_vid_size
-from web_scrape_bot import scrape_twitter, scrape_instagram
+from web_scrape_bot import scrape_reddit, scrape_twitter, scrape_instagram
 
 TOKEN = "SECRET"
 
@@ -72,6 +72,41 @@ async def handle_instagram_url(
     )
 
 
+async def handle_reddit_url(
+    url: str, update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int = None
+):
+    print("This is a reddit link!")
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text="Reddit link found.", reply_to_message_id=message_id
+    )
+    vid_name = url_to_filename(url)
+    # send video.mp4
+    success = await scrape_reddit(url, vid_name_and_path=vid_name)
+    if not success:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Failed to scrape somewhere!",
+            reply_to_message_id=message_id,
+        )
+        return
+    found = check_for_downloaded_vid(vid_name)
+    if not found:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Failed to find video!",
+            reply_to_message_id=message_id,
+        )
+        return
+    width, height = get_vid_size(vid_name)
+    await context.bot.send_video(
+        chat_id=update.effective_chat.id,
+        video=open(vid_name, "rb"),
+        width=width,
+        height=height,
+        reply_to_message_id=message_id,
+    )
+
+
 async def handle_twitter_url(
     url: str, update: Update, context: ContextTypes.DEFAULT_TYPE, message_id: int = None
 ):
@@ -123,7 +158,7 @@ async def handle_text_input(text: str, update: Update, context: ContextTypes.DEF
         await handle_twitter_url(text, update, context, message_id)
     elif text.startswith("https://www.reddit.com"):
         # elif text.startswith("https://v.redd.it/"):
-        await handle_twitter_url(text, update, context, message_id)
+        await handle_reddit_url(text, update, context, message_id)
     elif "instagram.com/" in text:
         await handle_instagram_url(text, update, context, message_id)
 

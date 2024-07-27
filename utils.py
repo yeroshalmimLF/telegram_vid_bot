@@ -14,6 +14,10 @@ def url_to_filename(url: str):
         url = url.split("?")[0]
         vid_id = url.split("/")[-1]
         vid_name = f"{vid_id}.mp4"
+    elif url.startswith("https://www.reddit.com"):
+        url = url.split("?")[0]
+        vid_id = [_ for _ in url.split("/") if _][-1]
+        vid_name = f"{vid_id}.mp4"
     else:
         print(f"This is not a known link! {url}")
         vid_name = "ERROR.mp4"
