@@ -81,10 +81,17 @@ async def handle_twitter_url(
     )
     vid_name = url_to_filename(url)
     # send video.mp4
-    vids = await scrape_twitter(url, vid_name)
+    max_attempts = 5
+    for i in range(max_attempts):
+        vids = await scrape_twitter(url, vid_name)
+        if vids:
+            break
+        print(f"Failed to scrape {i} times!")
     if not vids:
         await context.bot.send_message(
-            chat_id=update.effective_chat.id, text="Failed to scrape somewhere!"
+            chat_id=update.effective_chat.id,
+            text="Failed to scrape somewhere!",
+            reply_to_message_id=message_id,
         )
         return
     print(vids)
@@ -113,6 +120,9 @@ async def handle_text_input(text: str, update: Update, context: ContextTypes.DEF
     if text.startswith("https://x.com/"):
         await handle_twitter_url(text, update, context, message_id)
     elif text.startswith("https://twitter.com/"):
+        await handle_twitter_url(text, update, context, message_id)
+    elif text.startswith("https://www.reddit.com"):
+        # elif text.startswith("https://v.redd.it/"):
         await handle_twitter_url(text, update, context, message_id)
     elif "instagram.com/" in text:
         await handle_instagram_url(text, update, context, message_id)
