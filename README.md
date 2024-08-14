@@ -16,4 +16,4 @@
 
 # 4. Save instagram or twitter credentials etc
 
-<!-- playwright open --save-storage instagram.json -->
+playwright open --save-storage twitter.json
