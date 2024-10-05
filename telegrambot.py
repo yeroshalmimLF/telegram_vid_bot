@@ -12,7 +12,13 @@ from telegram.ext import (
     filters,
 )
 
-from utils import convert_gif_to_mp4, get_vid_size, url_to_filename
+from utils import (
+    convert_gif_to_mp4,
+    get_file_size_in_mb,
+    get_vid_dimensions,
+    reduce_video_size,
+    url_to_filename,
+)
 from web_scrape_bot import scrape_instagram, scrape_reddit, scrape_twitter
 
 TOKEN = "SECRET"
@@ -68,7 +74,7 @@ async def handle_instagram_url(
             chat_id=update.effective_chat.id, text=f"Failed to find video!"
         )
         return
-    width, height = get_vid_size(vid_name)
+    width, height = get_vid_dimensions(vid_name)
     await context.bot.send_video(
         chat_id=update.effective_chat.id, video=open(vid_name, "rb"), width=width, height=height
     )
@@ -118,7 +124,7 @@ async def handle_reddit_url(
             reply_to_message_id=message_id,
         )
         return
-    width, height = get_vid_size(vid_name)
+    width, height = get_vid_dimensions(vid_name)
     await context.bot.send_video(
         chat_id=update.effective_chat.id,
         video=open(vid_name, "rb"),
@@ -161,14 +167,39 @@ async def handle_twitter_url(
                 reply_to_message_id=message_id,
             )
             return
-        width, height = get_vid_size(vid)
-        await context.bot.send_video(
-            chat_id=update.effective_chat.id,
-            video=open(vid, "rb"),
-            width=width,
-            height=height,
-            reply_to_message_id=message_id,
-        )
+        width, height = get_vid_dimensions(vid)
+        size = get_file_size_in_mb(vid)
+        if not size:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Failed to get video size attempting upload anyways!",
+                reply_to_message_id=message_id,
+            )
+        else:
+            if size > 50:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=f"Video is too large! {size} > 50MB. Reducing to 50MB!",
+                    reply_to_message_id=message_id,
+                )
+                vid = reduce_video_size(vid)
+
+        try:
+            await context.bot.send_video(
+                chat_id=update.effective_chat.id,
+                video=open(vid, "rb"),
+                width=width,
+                height=height,
+                reply_to_message_id=message_id,
+            )
+        except Exception as e:
+            print(e)
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"Failed to send video! {e}",
+                reply_to_message_id=message_id,
+            )
+        return
 
 
 async def handle_text_input(text: str, update: Update, context: ContextTypes.DEFAULT_TYPE):

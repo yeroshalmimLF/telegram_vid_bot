@@ -1,18 +1,20 @@
 import asyncio
-import concurrent.futures
 import os
 import re
 import subprocess
 import urllib.request
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
-import aiohttp
 from playwright.async_api import Playwright, async_playwright
 from RedDownloader import RedDownloader
 from redvid import Downloader
 from rich import print
 
-from utils import convert_gif_to_mp4, filename_enumerated
+from utils import (
+    best_vid_and_audio_steam,
+    download_mp4_from_vid_and_audio,
+    filename_enumerated,
+)
 
 if TYPE_CHECKING:
     from playwright.async_api._generated import Browser, Page
@@ -55,25 +57,20 @@ async def handle_request_twitter(vid_name: str, request, unused_variable):
     if ".m3u8" in request.url:
         if "variant_version" in request.url:
             print("This is maybe the video!", request.url)
-            print(request.__dict__)
-            print(dir(request))
-            print("#" * 50)
-            print(unused_variable)
-            print("#" * 50)
+
             return request.url
-            # There can still be multiple vids at this point from comments
-            # await m3u8_to_mp4(request.url, vid_name)
+
     elif "video.twimg.com/tweet_video/" in request.url:
         print("found a 'gif' video!", request.url)
         return request.url
     return "NOT_M3U8"
 
 
-async def handle_request_instagram(vid_name: str, request):
-    print(">>", request.method, request.url)
-    if ".mp4" in request.url:
-        print(f"This is the video! {request.url}")
-        await download_mp4_url(request.url, vid_name)
+async def handle_request_instagram(vid_name: str, request, unused_variable):
+    substrings = [".mp4", "bytestart=0"]
+    if all(substring in request.url for substring in substrings):
+        return request.url
+    return "NOT_M3U8"
 
 
 async def setup_browser(playwright: Playwright, storage_state: str) -> Tuple["Browser", "Page"]:
@@ -156,7 +153,6 @@ async def scrape_twitter(url: str, vid_name: str):
             print(urls)
             print("!!!!" * 90)
             vids = []
-            # urls = []  # remove this line to download all videos
             for x, url in enumerate(urls):
                 if ".m3u8" in url:
                     # change Vid_name to be unique for each video
@@ -182,15 +178,34 @@ async def find_element_with_text(page, text):
     return None
 
 
+def insta_urls_to_vid(urls: List[str], vid_name: str):
+    # remove byteend=anything from the urls
+    urls = [re.sub(r"byteend=\d+", "", url) for url in urls]
+    # set bytestart=0
+    urls = [re.sub(r"bytestart=\d+", "bytestart=0", url) for url in urls]
+    # remove duplicates
+    urls = list(set(urls))
+    # get best video and audio stream
+    vid_url, aud_url = best_vid_and_audio_steam(urls)
+    # download video and audio combined
+    success = download_mp4_from_vid_and_audio(vid_url, aud_url, vid_name)
+    return vid_name
+
+
 async def scrape_instagram(url: str, vid_name: str):
     try:
         async with async_playwright() as playwright:
             # Connect to Browser and load context
             browser, page = await setup_browser(playwright, "instagram.json")
 
+            # create an empty list to store the coroutines
+            request_handlers = []
+
             page.on(
                 "request",
-                lambda request: asyncio.create_task(handle_request_instagram(vid_name, request)),
+                lambda request: request_handlers.append(
+                    handle_request_instagram(vid_name, request, "ignore this")
+                ),
             )
 
             await page.goto(url)
@@ -200,11 +215,22 @@ async def scrape_instagram(url: str, vid_name: str):
                 await view_story_button.click()
             await asyncio.sleep(5)
             await browser.close()
+
+            # Return the list of coroutines
+            urls = []
+            for i, req in enumerate(request_handlers):
+                vid_url = await req
+                if vid_url != "NOT_M3U8":
+                    print(i, vid_url, req)
+                    urls.append(vid_url)
+            print("!!!!" * 90)
+            # At this point it is a list of video and audio urls
+            print(urls)
+            # find best video and audio
+            vid = insta_urls_to_vid(urls=urls, vid_name=vid_name)
+            print("!!!!" * 90)
+
         return True
     except Exception as e:
         print(e)
         return False
-
-
-# # Replace with your actual URL and video name
-# asyncio.run(scrape_twitter("https://twitter.com/example", "example_video"))
